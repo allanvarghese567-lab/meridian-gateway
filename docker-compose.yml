@@ -1,0 +1,87 @@
+name: meridian-gateway
+
+networks:
+  gateway:
+    driver: bridge
+
+services:
+  api_gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: meridian-gateway:local
+    environment:
+      GATEWAY_ENV: production
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      ALERT_THRESHOLD_SECONDS: ${ALERT_THRESHOLD_SECONDS:-2.0}
+      ALERT_COOLDOWN_SECONDS: ${ALERT_COOLDOWN_SECONDS:-10}
+      CACHE_MAX_SIZE: ${CACHE_MAX_SIZE:-10000}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-30}
+      INTERNAL_PERMITS: ${INTERNAL_PERMITS:-15}
+      EXTERNAL_PERMITS: ${EXTERNAL_PERMITS:-5}
+    networks: [gateway]
+    expose: ["8000"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  nginx_proxy:
+    image: nginx:1.27-alpine
+    depends_on:
+      api_gateway:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/fastapi-gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/entrypoint.sh:/entrypoint.sh:ro
+      - gateway_certs:/etc/nginx/certs
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    networks: [gateway]
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    depends_on:
+      api_gateway:
+        condition: service_healthy
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    networks: [gateway]
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    depends_on: [prometheus]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin_secure_pass_2026}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks: [gateway]
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  gateway_certs:

@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  scrape_timeout: 4s
+
+rule_files:
+  - /etc/prometheus/alert.rules.yml
+
+scrape_configs:
+  - job_name: meridian-gateway
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api_gateway:8000"]
+        labels:
+          service: api_gateway

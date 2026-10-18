@@ -1,0 +1,50 @@
+{
+  "uid": "meridian-gateway",
+  "title": "Meridian gateway",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Mean latency",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gateway_average_latency_seconds", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "decimals": 3 }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Cache entries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gateway_cache_entries", "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Alerts",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "gateway_alerts_total", "refId": "A" }]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Calls",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (lane, outcome) (gateway_calls_total)",
+          "refId": "A",
+          "legendFormat": "{{lane}} {{outcome}}"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+groups:
+  - name: meridian-gateway
+    rules:
+      - alert: GatewayLatencyHigh
+        expr: gateway_average_latency_seconds > 2
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mean tool latency is above 2 seconds"
+          description: "gateway_average_latency_seconds has been {{ $value }} for 15s."
+
+      - alert: GatewayErrorRate
+        expr: sum(rate(gateway_calls_total{outcome="error"}[1m])) > 0.5
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Tool errors are accumulating"
+          description: "Error rate is {{ $value }} calls/second."
+
+      - alert: GatewayDown
+        expr: gateway_up == 0 or absent(gateway_up)
+        for: 20s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gateway metrics are missing"
+          description: "Prometheus has not scraped gateway_up recently."
